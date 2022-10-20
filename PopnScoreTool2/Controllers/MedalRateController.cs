@@ -13,10 +13,8 @@ namespace PopnScoreTool2.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class MedalRateController : ControllerBase
+    public class MedalRateController : AuthedController
     {
-        private readonly AppDbContext _context;
-
         public MedalRateController(AppDbContext context)
         {
             _context = context;
@@ -24,23 +22,14 @@ namespace PopnScoreTool2.Controllers
 
         // GET: api/Values
         [HttpGet]
-        public async Task<ActionResult<object[]>> GetValues()
+        public Task<ActionResult<object[][]>> GetValues()
         {
-            var userIntId = -1;
-            // ログインしているか確認。
-            if (User.Identity.IsAuthenticated)
-            {
-                // IDを特定する
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return authenticated(async id => await query(id));
+        }
 
-                // UserIntID取得。なければ終わり
-                var userInt = _context.UserInts.Where(a => a.AspNetUsersFK == userId);
+        private Task<object[][]> query(int userIntId)
+        {
 
-                if (userInt.Any())
-                {
-                    userIntId = userInt.First().Id;
-                }
-            }
 
             /*
             var item = await _context.Musics.Where(w => w.Deleted == false)
@@ -81,7 +70,7 @@ namespace PopnScoreTool2.Controllers
                 .Select(a => new object[]{ a.Id, a.MedalOrdinalScale, a.RankOrdinalScale, a.Score, a.PlayerCount, a.AverageScore, a.Medal4, a.Medal5, a.Medal6, a.Medal7, a.Medal8, a.Medal9, a.Medal10, a.PlayerCountNow })
                 .ToArrayAsync();
             */
-            var item = await _context.Musics.Where(w => w.Deleted == false)
+            return _context.Musics.Where(w => w.Deleted == false)
                 .GroupJoin(_context.MusicScores.Where(w => w.UserIntId == userIntId), a => a.Id, b => b.FumenId, (a, b) => new { a, b })
                 .SelectMany(ab => ab.b.DefaultIfEmpty(), (a, b) => new { a, b })
                 .GroupJoin(_context.OldStatses, c => c.a.a.Id, d => d.FumenId, (c, d) => new { c, d })
@@ -118,13 +107,6 @@ namespace PopnScoreTool2.Controllers
                 })
                 .Select(a => new object[] { a.Id, a.MedalOrdinalScale, a.RankOrdinalScale, a.Score, a.PlayerCount, a.AverageScore, a.Medal4, a.Medal5, a.Medal6, a.Medal7, a.Medal8, a.Medal9, a.Medal10, a.PlayerCountNow })
                 .ToArrayAsync();
-
-            if (item == null)
-            {
-                return NotFound();
-            }
-
-            return item;
         }
     }
 }

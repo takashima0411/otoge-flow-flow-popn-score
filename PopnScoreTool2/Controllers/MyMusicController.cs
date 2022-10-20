@@ -12,10 +12,8 @@ namespace PopnScoreTool2.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class MyMusicController : ControllerBase
+    public class MyMusicController : AuthedController
     {
-        private readonly AppDbContext _context;
-
         public MyMusicController(AppDbContext context)
         {
             _context = context;
@@ -23,28 +21,14 @@ namespace PopnScoreTool2.Controllers
 
         // GET: api/Values
         [HttpGet]
-        public async Task<ActionResult<object[]>> GetValues()
+        public Task<ActionResult<object[][]>> GetValues()
         {
-            // ログインしているか確認。
-            if (!User.Identity.IsAuthenticated)
-            {
-                return NotFound();
-            }
+            return authenticated(async id => await query(id));
+        }
 
-            // IDを特定する
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            // UserIntID取得。なければ終わり
-            var userInt = _context.UserInts.Where(a => a.AspNetUsersFK == userId);
-
-            if (!userInt.Any())
-            {
-                return NotFound();
-            }
-
-            var userIntId = userInt.First().Id;
-
-            var item = await _context.Musics.Where(w => w.Deleted == false)
+        private Task<object[][]> query(int userIntId)
+        {
+            return _context.Musics.Where(w => w.Deleted == false)
                 .GroupJoin(_context.MusicScores.Where(w => w.UserIntId == userIntId), a => a.Id, b => b.FumenId, (a, b) => new { a, b })
                 .SelectMany(ab => ab.b.DefaultIfEmpty(), (a, b) => new
                 {
@@ -55,13 +39,6 @@ namespace PopnScoreTool2.Controllers
                 }).Select(a => new object[] { a.Id, a.MedalOrdinalScale, a.RankOrdinalScale, a.Score })
                 // }).Select(a => new object[] { a.Id, a.MedalOrdinalScale })
                 .ToArrayAsync();
-
-            if (item == null)
-            {
-                return NotFound();
-            }
-
-            return item;
         }
     }
 }

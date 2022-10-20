@@ -7,15 +7,14 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PopnScoreTool2.Data;
+using PopnScoreTool2.Models;
 
 namespace PopnScoreTool2.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ProfileController : ControllerBase
+    public class ProfileController : AuthedController
     {
-        private readonly AppDbContext _context;
-
         public ProfileController(AppDbContext context)
         {
             _context = context;
@@ -23,39 +22,17 @@ namespace PopnScoreTool2.Controllers
 
         // GET: api/Values
         [HttpGet]
-        public async Task<ActionResult<object[]>> GetValues()
+        public Task<ActionResult<object[][]>> GetValues()
         {
-            // ログインしているか確認。
-            if (!User.Identity.IsAuthenticated)
-            {
-                return NotFound();
-            }
-
-            // IDを特定する
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            // UserIntID取得。なければ終わり
-            var userInt = _context.UserInts.Where(a => a.AspNetUsersFK == userId);
-
-            if (!userInt.Any())
-            {
-                return NotFound();
-            }
-
-            var userIntId = userInt.First().Id;
-
-            var item = await _context.Profiles
+            return authenticated(async id => await query(id));
+        }
+        private Task<object[][]> query(int userIntId)
+        {
+            return _context.Profiles
                 .Where(a => a.UserIntId == userIntId)
                 .Select(a => new object[]{ a.PlayerName, a.PopnFrendId, a.UseCharacterName,
                     a.NormalModeCreditCount, a.BattleModeCreditCount, a.LocalModeCreditCount, a.Comment, a.LastUpdateTime.ToString("yyyy/MM/dd HH:mm:ss") })
                 .ToArrayAsync();
-
-            if (item == null)
-            {
-                return NotFound();
-            }
-
-            return item;
         }
     }
 }
